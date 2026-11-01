@@ -1,0 +1,1 @@
+{"name":"charcoal-provision","version":"1.0.0","private":true,"main":"index.js","dependencies":{"wx-server-sdk":"3.0.1","@cloudbase/manager-node":"^5.0.0"}}

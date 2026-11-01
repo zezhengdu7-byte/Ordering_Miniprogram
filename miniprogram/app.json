@@ -1,0 +1,39 @@
+{
+  "pages": [
+    "pages/menu/index",
+    "pages/orders/index",
+    "pages/manage/index",
+    "pages/dish-edit/index",
+    "pages/admin-orders/index",
+    "pages/staff-login/index",
+    "pages/dish-manage/index",
+    "pages/shop-settings/index",
+    "pages/table-manage/index",
+    "pages/printer-settings/index",
+    "pages/category-manage/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "炭火里 · 烧烤",
+    "navigationBarBackgroundColor": "#faf7f2",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#faf7f2"
+  },
+  "tabBar": {
+    "color": "#8c857c",
+    "selectedColor": "#ba4b2d",
+    "backgroundColor": "#fffdfa",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/menu/index",
+        "text": "点餐"
+      },
+      {
+        "pagePath": "pages/orders/index",
+        "text": "订单"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

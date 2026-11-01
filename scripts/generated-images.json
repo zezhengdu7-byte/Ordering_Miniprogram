@@ -1,0 +1,262 @@
+[
+  {
+    "id": "pork",
+    "name": "猪肉",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-dfa87dbb-a1ce-4d2f-9d2c-5792fb42f67d.png"
+  },
+  {
+    "id": "pork-belly",
+    "name": "带皮五花肉",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-ce8dd083-e4aa-4c7f-abb4-db902ec4062a.png"
+  },
+  {
+    "id": "lamb",
+    "name": "羊肉",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-b06fb6aa-4b98-483b-8774-cc668dd62482.png"
+  },
+  {
+    "id": "beef",
+    "name": "牛肉",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-18ffa97b-5395-4b33-8db4-e33c3146f2ab.png"
+  },
+  {
+    "id": "beef-tendon",
+    "name": "牛板筋",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-b8392031-ebe9-4143-864f-afd5997d4fa9.png"
+  },
+  {
+    "id": "beef-mini",
+    "name": "牛肉小串",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-4f9d1d17-f49e-4b34-ab06-e0ef34fd0f58.png"
+  },
+  {
+    "id": "beef-brisket",
+    "name": "牛胸口",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-45bbbc63-7d90-4991-bfe2-b326945a6069.png"
+  },
+  {
+    "id": "beef-heart-tube",
+    "name": "牛心管",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-f291c429-a02d-4200-90c3-89090dddb5f1.png"
+  },
+  {
+    "id": "beef-sinew",
+    "name": "牛肉筋",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-287f1fe1-ca48-4678-a1b7-36b23c5d6582.png"
+  },
+  {
+    "id": "pork-cartilage",
+    "name": "猪脆骨",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-5d0c4105-ef91-4019-8679-47c34a9c83df.png"
+  },
+  {
+    "id": "garlic-pork",
+    "name": "蒜瓣肉",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-10f7011f-a75b-47db-9a93-35a848af86d2.png"
+  },
+  {
+    "id": "gizzard",
+    "name": "鸡胗",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-0f151d04-c9ae-48fd-9caf-4ef18fa5149a.png"
+  },
+  {
+    "id": "chicken-heart",
+    "name": "鸡心",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-3c105036-1c6d-43f2-95a7-e2f6703a2a3b.png"
+  },
+  {
+    "id": "wings",
+    "name": "奥尔良翅中",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-6cc76fd5-4796-4e85-9de9-249ffe123193.png"
+  },
+  {
+    "id": "lamb-kidney",
+    "name": "羊腰",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-197749bf-79ba-48f7-b6a2-8af65a341410.png"
+  },
+  {
+    "id": "lamb-testicle",
+    "name": "羊宝",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-ff8130b1-0f25-481f-8650-9c5c826d6aab.png"
+  },
+  {
+    "id": "shrimp",
+    "name": "大虾",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-cac0f416-6cc9-4d3d-8286-756a6246e7ed.png"
+  },
+  {
+    "id": "squid",
+    "name": "鱿鱼",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-43796b03-22a6-406a-88ee-2d4184ae44bd.png"
+  },
+  {
+    "id": "yellow-croaker",
+    "name": "黄花鱼",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-31d5a8e5-f291-4870-9cf0-652e7ad25564.png"
+  },
+  {
+    "id": "capelin",
+    "name": "多春鱼",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-8f95a731-4873-481a-9f0a-f1127de3dd08.png"
+  },
+  {
+    "id": "halfbeak",
+    "name": "马步鱼",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-377028a4-d097-427a-b8da-071677542b3d.png"
+  },
+  {
+    "id": "gluten",
+    "name": "面筋",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-7673da05-70a9-47fe-811b-cdc4653f8c3f.png"
+  },
+  {
+    "id": "fish-tofu",
+    "name": "包心鱼豆腐",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-f34490cd-6b07-47b6-b91a-489254386f48.png"
+  },
+  {
+    "id": "tofu",
+    "name": "千页豆腐",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-e05c586a-3547-4887-9c0b-d30a4f7713b0.png"
+  },
+  {
+    "id": "sausage",
+    "name": "烤肠",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-0034b24e-432d-4aab-b285-047d373ce938.png"
+  },
+  {
+    "id": "bread",
+    "name": "网红大面包",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-131db21b-2f48-4a0b-bfbc-52b75afa8c5c.png"
+  },
+  {
+    "id": "pork-fat",
+    "name": "网红大油边",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-12e3ec61-9077-45c9-b8bc-80bf6ce64e6f.png"
+  },
+  {
+    "id": "whole-fish",
+    "name": "烤鱼",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-ec99289d-7a48-4710-8ad5-8b88fbd0aecf.png"
+  },
+  {
+    "id": "cabbage",
+    "name": "甘蓝",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-196835da-7d66-43a8-8c1f-b194908b97e2.png"
+  },
+  {
+    "id": "mushroom",
+    "name": "蘑菇",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-bb9c55f5-2ce6-4025-a6fa-d54ccf42c119.png"
+  },
+  {
+    "id": "pepper",
+    "name": "尖椒",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-1c694a65-92ba-459a-aa9e-a219a58c3cd3.png"
+  },
+  {
+    "id": "potato",
+    "name": "土豆片",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-7b2f0e24-1b66-4da4-a6b4-cb76e0d465f2.png"
+  },
+  {
+    "id": "chives",
+    "name": "韭菜",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-b3871924-f75b-4935-a586-86efa2d12a91.png"
+  },
+  {
+    "id": "eggplant",
+    "name": "茄子",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-d7015297-e095-4aec-b037-f59dac053971.png"
+  },
+  {
+    "id": "zucchini",
+    "name": "西葫芦",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-0a350595-65d8-44a5-a492-2c20348f71b9.png"
+  },
+  {
+    "id": "cilantro-tofu",
+    "name": "香菜豆腐",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-bebe8e55-f3df-4c45-a507-fe348b7cb684.png"
+  },
+  {
+    "id": "sour-potato",
+    "name": "酸辣土豆丝",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-a9c74d0d-1cc8-41e8-8a38-ba0fcf8619f8.png"
+  },
+  {
+    "id": "fried-fish",
+    "name": "香煎青鱼",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-8a51c5de-3aae-461d-962e-1b4c9bf3be25.png"
+  },
+  {
+    "id": "sweet-tomato",
+    "name": "糖拌西红柿",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-2ddfd591-f20f-4b24-aede-997df82991a2.png"
+  },
+  {
+    "id": "spicy-clams",
+    "name": "辣炒花蛤",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-302110ea-28aa-442c-8eb9-57c8316082bd.png"
+  },
+  {
+    "id": "cucumber",
+    "name": "爽口黄瓜",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-2b0a7d39-8b2c-45f7-9aad-ba9914c2bfea.png"
+  },
+  {
+    "id": "tofu-skin",
+    "name": "凉拌豆腐皮",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-c26ff0b9-a156-42e8-9286-8fd4477d43a1.png"
+  },
+  {
+    "id": "foil-enoki",
+    "name": "锡纸金针菇",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-56153cc7-475f-40b1-955c-db9a7eff24d3.png"
+  },
+  {
+    "id": "foil-cabbage",
+    "name": "锡纸娃娃菜",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-4f6dfff5-b797-436f-96ee-909492b61e49.png"
+  },
+  {
+    "id": "foil-vermicelli",
+    "name": "锡纸粉丝",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-7963c911-68d1-4659-a7e0-42192e2fb1b7.png"
+  },
+  {
+    "id": "foil-noodles",
+    "name": "锡纸方便面",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-fb86d1d6-0407-4adb-bf9a-e9b94950e953.png"
+  },
+  {
+    "id": "foil-clams",
+    "name": "锡纸花蛤",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-e5731d7e-8503-4dd2-8082-eebd0ed7ee74.png"
+  },
+  {
+    "id": "scallops",
+    "name": "粉丝扇贝",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-b458fa8b-48e5-4b52-8b79-393c2ebd1518.png"
+  },
+  {
+    "id": "flatbread",
+    "name": "淄博小饼",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-c550f5ae-34eb-4c65-b969-1667c6e72fde.png"
+  },
+  {
+    "id": "scallion-sauce",
+    "name": "葱酱",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-6f11e3a9-1265-4151-90ab-91f928790023.png"
+  },
+  {
+    "id": "peanuts",
+    "name": "花生",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-288eb830-ebc1-4d47-b1d5-5f987dae2b82.png"
+  },
+  {
+    "id": "edamame",
+    "name": "毛豆",
+    "source": "/Users/duzz/.codex/generated_images/01a195a5-1f38-7072-a152-92ce3f680dd6/exec-508fe3c7-041f-4054-8ec7-cba2d9ab32a9.png"
+  }
+]

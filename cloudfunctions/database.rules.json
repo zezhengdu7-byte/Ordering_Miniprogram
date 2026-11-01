@@ -1,0 +1,54 @@
+{
+  "stores": {
+    "read": false,
+    "write": false
+  },
+  "store_members": {
+    "read": false,
+    "write": false
+  },
+  "categories": {
+    "read": false,
+    "write": false
+  },
+  "dishes": {
+    "read": false,
+    "write": false
+  },
+  "tables": {
+    "read": false,
+    "write": false
+  },
+  "sessions": {
+    "read": false,
+    "write": false
+  },
+  "session_members": {
+    "read": false,
+    "write": false
+  },
+  "carts": {
+    "read": false,
+    "write": false
+  },
+  "orders": {
+    "read": false,
+    "write": false
+  },
+  "payments": {
+    "read": false,
+    "write": false
+  },
+  "printers": {
+    "read": false,
+    "write": false
+  },
+  "print_jobs": {
+    "read": false,
+    "write": false
+  },
+  "catalog_meta": {
+    "read": false,
+    "write": false
+  }
+}

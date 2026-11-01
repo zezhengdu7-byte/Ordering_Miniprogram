@@ -1,0 +1,341 @@
+{
+  "version": 2,
+  "scope": "single-store",
+  "storeId": "charcoal-demo",
+  "appId": "wx7dc3e02ff34b0133",
+  "format": "project-design-not-cloudbase-cli-import",
+  "collections": {
+    "stores": {
+      "indexes": [
+        {
+          "name": "storeId_appId",
+          "unique": true,
+          "fields": [
+            {
+              "field": "storeId",
+              "order": "asc"
+            },
+            {
+              "field": "appId",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "store_members": {
+      "indexes": [
+        {
+          "name": "identity",
+          "unique": true,
+          "fields": [
+            {
+              "field": "storeId",
+              "order": "asc"
+            },
+            {
+              "field": "appId",
+              "order": "asc"
+            },
+            {
+              "field": "openid",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "categories": {
+      "indexes": [
+        {
+          "name": "menu_sort",
+          "unique": false,
+          "fields": [
+            {
+              "field": "active",
+              "order": "asc"
+            },
+            {
+              "field": "sort",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "dishes": {
+      "indexes": [
+        {
+          "name": "category_menu",
+          "unique": false,
+          "fields": [
+            {
+              "field": "categoryId",
+              "order": "asc"
+            },
+            {
+              "field": "active",
+              "order": "asc"
+            },
+            {
+              "field": "sort",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "tables": {
+      "indexes": [
+        {
+          "name": "table_name",
+          "unique": true,
+          "fields": [
+            {
+              "field": "name",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "sessions": {
+      "indexes": [
+        {
+          "name": "table_history",
+          "unique": false,
+          "fields": [
+            {
+              "field": "tableId",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "open_sessions",
+          "unique": false,
+          "fields": [
+            {
+              "field": "status",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "session_members": {
+      "indexes": [
+        {
+          "name": "membership",
+          "unique": true,
+          "fields": [
+            {
+              "field": "sessionId",
+              "order": "asc"
+            },
+            {
+              "field": "openid",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "carts": {
+      "indexes": [
+        {
+          "name": "session_cart",
+          "unique": true,
+          "fields": [
+            {
+              "field": "sessionId",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "orders": {
+      "indexes": [
+        {
+          "name": "submit_once",
+          "unique": true,
+          "fields": [
+            {
+              "field": "submittedBy",
+              "order": "asc"
+            },
+            {
+              "field": "requestId",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "session_orders",
+          "unique": false,
+          "fields": [
+            {
+              "field": "sessionId",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "kitchen_queue",
+          "unique": false,
+          "fields": [
+            {
+              "field": "status",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "daily_orders",
+          "unique": false,
+          "fields": [
+            {
+              "field": "businessDate",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "order_number",
+          "unique": true,
+          "fields": [
+            {
+              "field": "number",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "customer_history",
+          "unique": false,
+          "fields": [
+            {
+              "field": "submittedBy",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "payments": {
+      "indexes": [
+        {
+          "name": "trade_number",
+          "unique": true,
+          "fields": [
+            {
+              "field": "outTradeNo",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "payment_request",
+          "unique": true,
+          "fields": [
+            {
+              "field": "orderId",
+              "order": "asc"
+            },
+            {
+              "field": "requestId",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "order_payments",
+          "unique": false,
+          "fields": [
+            {
+              "field": "orderId",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "printers": {
+      "indexes": []
+    },
+    "print_jobs": {
+      "indexes": [
+        {
+          "name": "print_once",
+          "unique": true,
+          "fields": [
+            {
+              "field": "dedupeKey",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "queue",
+          "unique": false,
+          "fields": [
+            {
+              "field": "status",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        },
+        {
+          "name": "order_prints",
+          "unique": false,
+          "fields": [
+            {
+              "field": "orderId",
+              "order": "asc"
+            },
+            {
+              "field": "createdAt",
+              "order": "asc"
+            }
+          ]
+        }
+      ]
+    },
+    "catalog_meta": {
+      "indexes": []
+    }
+  }
+}
