@@ -1,6 +1,6 @@
 import { cloudConfig } from '../config';
 import { initAuth } from './auth';
-import { tableState } from './table-service';
+import { tableState, TableBinding, clearTableBinding } from './table-service';
 import * as local from './store';
 import type { Dish, Shop, Printer, Order } from './store';
 export { read, money, cartView, categoriesWithCount, changeCart, changeDishQuantity, clearCart, selectDemoTable, statusNames } from './store';
@@ -9,7 +9,7 @@ let version: number | undefined;
 let customerOrders: Order[] = [], merchantOrders: Order[] = [];
 let pendingSubmit: { fingerprint: string; requestId: string } | null = null;
 const messages: Record<string,string> = {
-  FEE_CHANGED:'收费已更新，请重新查看并确认', DINING_FEES_NOT_CONFIGURED:'餐具及纸巾收费尚未设置，请联系店员', INVALID_DINING:'人数为1至99，餐具和纸巾数量为0至99', INVALID_FEE:'请填写有效的餐具及纸巾单价', DINING_REQUIRED:'请先确认用餐人数和餐具数量', FORBIDDEN:'当前微信无权执行此操作', UNAUTHENTICATED:'请在微信中重新打开小程序', OWNER_REQUIRED:'仅店主可执行',
+  ORDER_ITEMS_ONLY:'只能修改订单中已有的菜品', BILL_CHANGED:'结算金额已变化，请核对后重新结算', ORDERS_NOT_COMPLETED:'本桌还有订单未完成，暂不能结算', ORDER_NOT_EDITABLE:'订单当前状态不允许修改，请刷新后查看', DINING_ALREADY_CHARGED:'餐具和纸巾已提交订单，无法修改，请联系店员', FEE_CHANGED:'收费已更新，请重新查看并确认', DINING_FEES_NOT_CONFIGURED:'餐具及纸巾收费尚未设置，请联系店员', INVALID_DINING:'人数为1至99，餐具和纸巾数量为0至99', INVALID_FEE:'请填写有效的餐具及纸巾单价', DINING_REQUIRED:'请先确认用餐人数和餐具数量', FORBIDDEN:'当前微信无权执行此操作', UNAUTHENTICATED:'请在微信中重新打开小程序', OWNER_REQUIRED:'仅店主可执行',
   STORE_UNAVAILABLE:'门店暂不可用', STORE_CLOSED:'门店休息中，暂不接单', VERSION_CONFLICT:'数据已更新，请刷新后重试',
   DISH_UNAVAILABLE:'菜品已下架或售罄，请刷新菜单', CATEGORY_NOT_EMPTY:'请先移动或删除分区里的菜品',
   DUPLICATE_NAME:'名称已经存在', TABLE_BUSY:'该桌还有未完成订单，暂不能修改', LAST_TABLE:'至少保留一张桌台',
@@ -58,9 +58,9 @@ export async function saveShop(shop: Shop) { if (!enabled()) return local.saveSh
 export async function saveTable(id: string|null,name: string) { if (!enabled()) return local.saveTable(id,name); await mutation('saveTable',{id,name}); }
 export async function deleteTable(id: string) { if (!enabled()) return local.deleteTable(id); await mutation('deleteTable',{id}); }
 export async function savePrinter(printer: Printer) { if (!enabled()) return local.savePrinter(printer); await mutation('savePrinter',{printer}); }
-export async function submitOrder(note: string): Promise<Order> {
+export async function submitOrder(note: string, confirmedBinding?: TableBinding): Promise<Order> {
   if (!enabled()) return local.submitOrder(note);
-  const state=local.read();const binding=tableState().binding;if(!binding)throw new Error('请先扫描桌码');
+  const state=local.read();const binding=confirmedBinding || tableState().binding;if(!binding)throw new Error('请先扫描桌码');
   const lines=state.cart.map(c=>({dishId:c.dishId,flavor:c.flavor,quantity:c.quantity}));
   const payload={tableId:binding.tableId,sessionId:binding.sessionId,note:note.trim().slice(0,100),lines};
   const fingerprint=JSON.stringify(payload);
@@ -93,6 +93,32 @@ export function orderView(merchant = false) {
   if (!enabled()) return local.orderView();
   return (merchant?merchantOrders:customerOrders).map(o=>{
     const t=new Date(o.createdAt),pad=(n:number)=>String(n).padStart(2,'0');
-    return {...o,statusText:local.statusNames[o.status],totalText:local.money(o.total),diningFeeText:local.money(o.dining?.total||0),cutleryFeeText:local.money((o.dining?.cutleryPrice||0)*(o.dining?.cutlery||0)),napkinFeeText:local.money((o.dining?.napkinPrice||0)*(o.dining?.napkins||0)),timeText:`${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`,items:o.items.map(i=>({...i,priceText:local.money(i.price*i.quantity)}))};
+    return {...o,statusText:local.statusNames[o.status],totalText:local.money(o.total),diningFeeText:local.money(o.dining?.total||0),cutleryFeeText:local.money((o.dining?.cutleryPrice||0)*(o.dining?.cutlery||0)),napkinFeeText:local.money((o.dining?.napkinPrice||0)*(o.dining?.napkins||0)),timeText:`${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`,items:local.orderDisplayItems(o)};
   });
+}
+
+export async function getBill() {
+  if(!enabled()) {
+    const rows=local.read().orders.filter(o=>o.table===local.read().currentTable&&o.status!=='cancelled'&&!o.paid);
+    return {sessionId:'local',table:local.read().currentTable,total:rows.reduce((n,o)=>n+o.total,0),unfinished:rows.filter(o=>o.status!=='completed').length,count:rows.length};
+  }
+  const sid=tableState().binding?.sessionId;
+  if(!sid)return null;
+  try{return await call('getBill',{sessionId:sid});}catch(e:any){if(e.cloudCode==='SESSION_CLOSED'){clearTableBinding(sid);local.clearCart();return null;}throw e;}
+}
+export async function settleTable(expectedTotal?:number) {
+  if(!enabled()){
+    const bill=await getBill();if(bill?.unfinished)throw new Error('本桌还有订单未完成，暂不能结算');
+    local.read().orders.filter(o=>o.table===bill?.table&&o.status==='completed'&&!o.paid).forEach(o=>local.payDemo(o.id));
+    return;
+  }
+  const sid=tableState().binding?.sessionId;if(!sid)throw new Error('请先扫描桌码');
+  await call('settleSession',{sessionId:sid,expectedTotal});clearTableBinding(sid);local.clearCart();await syncOrders(false);
+}
+export async function editCustomerOrder(order:any,merchant=false) {
+  const lines=order.items.filter((i:any)=>!i.service).map((i:any)=>({dishId:i.dishId,flavor:i.flavor,quantity:i.quantity}));
+  if(!enabled())return local.editPendingOrder(order.id,lines,order.note,merchant);
+  await call(merchant?'editMerchantOrder':'editCustomerOrder',{id:order.id,version:order.version,lines,note:order.note,
+    ...(order.dining?.charged?{dining:{cutlery:order.items.find((i:any)=>i.service==='cutlery')?.quantity||0,napkins:order.items.find((i:any)=>i.service==='napkins')?.quantity||0}}:{})});
+  await syncOrders(merchant);
 }

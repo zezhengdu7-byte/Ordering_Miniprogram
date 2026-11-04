@@ -37,6 +37,8 @@ erDiagram
 
 订单 ID = SHA256(可信 OPENID + requestId)，submittedBy+requestId 唯一。超时重试保留 requestId，已经提交的请求返回原单；请求内容变化则拒绝。事务只做文档读取与写入；菜单编辑前的集合查询由 catalog_meta 版本锁保护。所有订单写入同时更新 session，关桌与下单互斥。
 
+商家通过 table-service 的 merchantJoin 选择桌台并加入用餐会话，再进入客户端复用 submitOrder、人数餐具确认和订单流程。merchantJoin 仅对商家开放；空桌自动开桌，已有会话继续加入。会话成员的服务端 source 标记决定订单来源，商家代客订单使用 source=merchant-assist。桌台管理按桌台汇总历史有效订单与金额，取消订单不计入消费。
+
 顾客读取自己提交的订单，商家可读全店订单，页面显示时每 5 秒刷新。状态为 pending→accepted→completed；未完成订单可按权限取消，商家操作校验版本。模拟付款只设置 demoPaid，不把 paymentStatus 改为真实 paid，也不写 payments。真实微信支付及退款尚未接入。
 
 关桌读取会话的 unsettledOrderIds：订单取消，或完成且已模拟付款/真实结算后移出清单。清单非空不能关桌；关桌后立即撤销会话权限。购物车本机内容不会冒充云端订单，本机旧演示订单保留在设备并且不迁入云端。

@@ -24,8 +24,10 @@ function priceOrder(lines, catalog) {
     const dish = dishes.get(line.dishId);
     check(dish && dish.active && dish.onSale && !dish.soldOut, 'DISH_UNAVAILABLE');
     check(dish.spicy || line.flavor === '标准', 'INVALID_FLAVOR');
+    const minimum = Math.max(1, dish.minQuantity || ((dish.description || '').includes('5串起点') ? 5 : 1));
+    integer(line.quantity, minimum, 99, 'QUANTITY');
     integer(dish.price, 1, 9999900, 'PRICE');
-    return { dishId: line.dishId, flavor: line.flavor, quantity: line.quantity, name: dish.name, unit: dish.unit, unitPrice: dish.price, subtotal: dish.price * line.quantity };
+    return { minQuantity: minimum, dishId: line.dishId, flavor: line.flavor, quantity: line.quantity, name: dish.name, unit: dish.unit, unitPrice: dish.price, subtotal: dish.price * line.quantity };
   });
   const total = items.reduce((sum, item) => sum + item.subtotal, 0);
   integer(total, 1, Number.MAX_SAFE_INTEGER, 'TOTAL');

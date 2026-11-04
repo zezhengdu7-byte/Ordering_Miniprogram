@@ -33,6 +33,28 @@ test('顾客和伪造跨App上下文不能管理桌台', async () => {
   assert.equal((await f.call({action:'list'},'owner','other')).ok,false);
   assert.equal((await f.call({action:'join',token:'bad'},'guest')).ok,false);
 });
+test('商家选桌与顾客扫码共用会话，空桌自动开桌且不依赖桌码启用', async () => {
+  const f = fixture();
+  await f.call({action:'add',name:'A08'});
+  const tableId = (await f.call({action:'list'})).tables[0].id;
+  assert.equal((await f.call({action:'merchantJoin',tableId},'guest')).ok,false);
+  const first = await f.call({action:'merchantJoin',tableId});
+  assert.equal(first.ok,true);
+  assert.equal(f.bucket('carts').get(first.binding.sessionId).lines.length,0);
+  assert.equal([...f.bucket('session_members').values()][0].source,'merchant-assist');
+  assert.equal((await f.call({action:'binding',sessionId:first.binding.sessionId})).ok,true);
+  await f.call({action:'code',tableId});
+  const guest = await f.call({action:'join',token:f.token()},'alice');
+  assert.equal(guest.binding.sessionId,first.binding.sessionId);
+  await f.call({action:'setQrEnabled',tableId,enabled:false});
+  const again = await f.call({action:'merchantJoin',tableId});
+  assert.equal(again.binding.sessionId,first.binding.sessionId);
+  assert.equal((await f.call({action:'join',token:f.token()},'bob')).ok,false);
+  await f.call({action:'close',tableId});
+  assert.equal((await f.call({action:'binding',sessionId:first.binding.sessionId})).ok,false);
+  const next = await f.call({action:'merchantJoin',tableId});
+  assert.notEqual(next.binding.sessionId,first.binding.sessionId);
+});
 test('一桌一码：两人加入同一会话，关桌撤销权限，下一桌创建全新会话', async () => {
   const f=fixture();
   assert.equal((await f.call({action:'add',name:'A06'})).ok,true);
@@ -100,4 +122,35 @@ test('停用桌码阻止新扫码，启用后恢复且不换码，进行中会�
   const b=await f.call({action:'join',token},'bob'); assert.equal(b.ok,true);
   assert.equal(b.binding.sessionId,a.binding.sessionId);
   assert.equal((await f.call({action:'setQrEnabled',tableId,enabled:false},'guest')).ok,false);
+});
+
+test('结束用餐必须匹配正在查看的会话，防止误结束下一桌客人',async()=>{
+ const f=fixture();await f.call({action:'add',name:'A06'});
+ const tableId=(await f.call({action:'list'})).tables[0].id;
+ const joined=await f.call({action:'merchantJoin',tableId});assert.equal(joined.ok,true);
+ const wrong=await f.call({action:'close',tableId,sessionId:'previous-session'});
+ assert.equal(wrong.ok,false);assert.match(wrong.message,/用餐会话已变化/);
+ assert.equal(f.bucket('tables').get(tableId).currentSessionId,joined.binding.sessionId);
+ const done=await f.call({action:'close',tableId,sessionId:joined.binding.sessionId});
+ assert.equal(done.ok,true);assert.equal(f.bucket('tables').get(tableId).currentSessionId,null);
+});
+
+test('商家确认结清后原子结账关桌，金额变化或未完成时拒绝',async()=>{
+ const f=fixture();await f.call({action:'add',name:'A06'});
+ const tableId=(await f.call({action:'list'})).tables[0].id;
+ const {binding}=await f.call({action:'merchantJoin',tableId});const sid=binding.sessionId;
+ f.bucket('sessions').get(sid).unsettledOrderIds=['o1'];
+ f.bucket('orders').set('o1',{sessionId:sid,tableId,status:'pending',total:1250,paymentStatus:'unpaid',version:1});
+ const event={action:'close',tableId,sessionId:sid,confirmSettlement:true,expectedTotal:1250};
+ assert.equal((await f.call(event,'guest')).ok,false);
+ assert.equal((await f.call(event)).ok,false);
+ f.bucket('orders').get('o1').status='completed';
+ assert.equal((await f.call({...event,expectedTotal:1000})).ok,false);
+ f.bucket('carts').get(sid).lines=[{dishId:'dish',quantity:1}];
+ assert.equal((await f.call(event)).ok,false);assert(!f.bucket('orders').get('o1').demoPaid);
+ f.bucket('carts').get(sid).lines=[];
+ assert.equal((await f.call(event)).ok,true);
+ assert.equal(f.bucket('orders').get('o1').demoPaid,true);
+ assert.equal(f.bucket('tables').get(tableId).currentSessionId,null);
+ assert.deepEqual(f.bucket('sessions').get(sid).unsettledOrderIds,[]);
 });

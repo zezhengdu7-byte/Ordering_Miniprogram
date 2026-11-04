@@ -26,8 +26,8 @@ async function all(db, collection, filter = {}) {
   return result;
 }
 function publicOrder(o) {
-  return { id:o._id,number:o.number,table:o.tableName,createdAt:o.createdAt,version:o.version,
-    items:o.items.map(i=>({name:i.name,unit:i.unit,price:i.unitPrice,quantity:i.quantity,flavor:i.flavor})),
+  return { id:o._id,number:o.number,table:o.tableName,tableId:o.tableId,sessionId:o.sessionId,source:o.source,createdAt:o.createdAt,settledAt:o.settledAt||(o.demoPaid?o.updatedAt||o.createdAt:null),version:o.version,
+    items:o.items.map(i=>({dishId:i.dishId,minQuantity:i.minQuantity||1,name:i.name,unit:i.unit,price:i.unitPrice,quantity:i.quantity,flavor:i.flavor})),
     dining:o.dining || null,foodTotal:o.foodTotal ?? o.total,total:o.total,note:o.note,status:o.status,paid:o.demoPaid === true,paymentStatus:o.paymentStatus,paymentMode:'demo' };
 }
 function createService(db, context, identity, validators) {
@@ -51,7 +51,7 @@ function createService(db, context, identity, validators) {
     const sort=(a,b)=>a.sort-b.sort||a._id.localeCompare(b._id);
     return {version:meta?.version||0,shop:{name:s.name,welcome:s.welcome,open:s.open,cutleryPrice:s.cutleryPrice??null,napkinPrice:s.napkinPrice??null},
       categories:categories.sort(sort).map(c=>({id:c._id,name:c.name,onSale:c.onSale!==false})),
-      dishes:dishes.sort(sort).map(d=>({id:d._id,categoryId:d.categoryId,name:d.name,description:d.description,price:d.price,unit:d.unit,image:d.imageFileId,onSale:d.onSale,soldOut:d.soldOut,spicy:d.spicy,tag:d.tag,version:d.version})),
+      dishes:dishes.sort(sort).map(d=>({id:d._id,categoryId:d.categoryId,name:d.name,description:d.description,minQuantity:d.minQuantity,price:d.price,unit:d.unit,image:d.imageFileId,onSale:d.onSale,soldOut:d.soldOut,spicy:d.spicy,tag:d.tag,version:d.version})),
       tables:tables.map(t=>({id:t._id,name:t.name})),...(printers.length?{printer:{name:printers[0].name,serial:printers[0].serial,copies:printers[0].copies,autoPrint:printers[0].autoPrint}}:{})};
   }
   async function catalog() {
@@ -79,7 +79,7 @@ function createService(db, context, identity, validators) {
         const file=text(d.image,1024,'INVALID_IMAGE');
         check(file.startsWith('cloud://cloud1-d0g5igvuk85096f8a.'),'INVALID_IMAGE');
         const old=await get(tx,'dishes',id);
-        const doc={categoryId:d.categoryId,name:text(d.name,24,'INVALID_NAME'),description:text(d.description,160,'INVALID_DESCRIPTION',true),price:d.price,unit:text(d.unit,12,'INVALID_UNIT'),imageFileId:file,onSale:!!d.onSale,soldOut:!!d.soldOut,spicy:!!d.spicy,tag:text(d.tag,24,'INVALID_TAG',true),sort:old?.sort??now,active:true,version:(old?.version||0)+1,createdAt:old?.createdAt||now,updatedAt:now};
+        const doc={categoryId:d.categoryId,name:text(d.name,24,'INVALID_NAME'),description:text(d.description,160,'INVALID_DESCRIPTION',true),minQuantity:Number.isInteger(d.minQuantity)&&d.minQuantity>1?d.minQuantity:1,price:d.price,unit:text(d.unit,12,'INVALID_UNIT'),imageFileId:file,onSale:!!d.onSale,soldOut:!!d.soldOut,spicy:!!d.spicy,tag:text(d.tag,24,'INVALID_TAG',true),sort:old?.sort??now,active:true,version:(old?.version||0)+1,createdAt:old?.createdAt||now,updatedAt:now};
         await tx.collection('dishes').doc(id).set({data:doc});
       } else if (action==='setDishStatus'||action==='deleteDish') {
         const d=await get(tx,'dishes',p.id);check(d?.active,'DISH_UNAVAILABLE');
@@ -127,7 +127,8 @@ function createService(db, context, identity, validators) {
       const table=await get(tx,'tables',session.tableId);
       check(table?.active&&table.currentSessionId===session._id,'SESSION_CLOSED');
       const shop=await get(tx,'stores',storeDoc._id);
-      if(e.action==='setDining'&&!session.dining?.confirmed) {
+      if(e.action==='setDining') {
+        check(!session.diningFeeOrderId,'DINING_ALREADY_CHARGED');
         const value=createDining(p,shop);
         await tx.collection('sessions').doc(session._id).update({data:{dining:value,updatedAt:Date.now()}});
         return { dining:value,fees:feeSettings(shop),charged:false };
@@ -152,6 +153,7 @@ function createService(db, context, identity, validators) {
       const member=await get(tx,'session_members',hash(p.sessionId+':'+context.OPENID));
       check(session?.status==='open' && session.tableId===table._id && table.currentSessionId===session._id,'SESSION_CLOSED');
       check(member?.active && member.sessionId===session._id && member.openid===context.OPENID,'FORBIDDEN');
+      if (member.source === 'merchant-assist') requireMerchant();
       const ids=[...new Set((Array.isArray(p.lines)?p.lines:[]).map(l=>l.dishId))];
       check(ids.length<=50,'INVALID_CART');
       const dishes=await Promise.all(ids.map(i=>get(tx,'dishes',i)));
@@ -162,12 +164,79 @@ function createService(db, context, identity, validators) {
       const priced=validators.priceOrder(p.lines,dishes.filter(Boolean));
       const dining=chargeDining(session);
       const now=Date.now();
-      const o={_id:id,sessionId:session._id,tableId:table._id,tableName:table.name,tableValidated:true,source:'table-code',submittedBy:context.OPENID,requestId,requestHash:fingerprint,cartVersion:null,number:`O${id}`,businessDate:new Date(now+8*3600000).toISOString().slice(0,10),...priced,foodTotal:priced.total,dining,total:priced.total+dining.total,note:text(p.note||'',100,'INVALID_NOTE',true),status:'pending',paymentStatus:'unpaid',paymentMode:'demo',demoPaid:false,activePaymentId:null,paidPaymentId:null,acceptedAt:null,completedAt:null,cancelledAt:null,version:1,createdAt:now,updatedAt:now};
+      const o={_id:id,sessionId:session._id,tableId:table._id,tableName:table.name,tableValidated:true,source:member.source === 'merchant-assist' ? 'merchant-assist' : 'table-code',submittedBy:context.OPENID,requestId,requestHash:fingerprint,cartVersion:null,number:`O${id}`,businessDate:new Date(now+8*3600000).toISOString().slice(0,10),...priced,foodTotal:priced.total,dining,total:priced.total+dining.total,note:text(p.note||'',100,'INVALID_NOTE',true),status:'pending',paymentStatus:'unpaid',paymentMode:'demo',demoPaid:false,activePaymentId:null,paidPaymentId:null,acceptedAt:null,completedAt:null,cancelledAt:null,version:1,createdAt:now,updatedAt:now};
       const {_id,...data}=o;await tx.collection('orders').doc(id).set({data});
       await tx.collection('sessions').doc(session._id).update({data:{unsettledOrderIds:[...new Set([...(session.unsettledOrderIds||[]),id])],diningFeeOrderId:session.diningFeeOrderId||id,updatedAt:now}});
       return o;
     });
     return publicOrder(doc);
+  }
+  async function bill(e, settle=false) {
+    const sid=e.payload?.sessionId;
+    return db.runTransaction(async tx=>{
+      const session=await get(tx,'sessions',sid);
+      const member=await get(tx,'session_members',hash(sid+':'+context.OPENID));
+      check(session,'SESSION_CLOSED');
+      check(member?.active&&member.sessionId===sid&&member.openid===context.OPENID,'FORBIDDEN');
+      if(settle&&session.status==='closed'&&session.settledAt)return {sessionId:sid,table:session.tableName,total:session.settledTotal||0,unfinished:0,count:0,settled:true};
+      check(session.status==='open','SESSION_CLOSED');
+      const table=await get(tx,'tables',session.tableId);
+      check(table?.active&&table.currentSessionId===sid,'SESSION_CLOSED');
+      const rows=await Promise.all((session.unsettledOrderIds||[]).map(id=>get(tx,'orders',id)));
+      check(rows.every(o=>o&&o.sessionId===sid),'INVALID_ORDER');
+      const unpaid=rows.filter(o=>o.status!=='cancelled'&&!o.demoPaid);
+      const total=unpaid.reduce((n,o)=>n+o.total,0);
+      const unfinished=unpaid.filter(o=>o.status!=='completed').length;
+      if(settle) {
+        check(!unfinished,'ORDERS_NOT_COMPLETED');
+        if(e.payload.expectedTotal!==undefined)check(e.payload.expectedTotal===total,'BILL_CHANGED');
+        const now=Date.now();
+        for(const o of unpaid) {
+          check(o.paymentStatus==='unpaid'&&!o.activePaymentId&&!o.paidPaymentId,'PAYMENT_MUST_BE_CLOSED');
+          await tx.collection('orders').doc(o._id).update({data:{demoPaid:true,settledAt:now,version:o.version+1,updatedAt:now}});
+        }
+        await tx.collection('sessions').doc(sid).update({data:{status:'closed',unsettledOrderIds:[],settledAt:now,settledTotal:total,closedAt:now,updatedAt:now}});
+        await tx.collection('tables').doc(session.tableId).update({data:{currentSessionId:null,updatedAt:now}});
+        const cart=await get(tx,'carts',sid);
+        if(cart)await tx.collection('carts').doc(sid).update({data:{lines:[],version:(cart.version||0)+1,updatedAt:now}});
+      }
+      return {sessionId:sid,table:table.name,total,unfinished,count:unpaid.length,settled:settle};
+    });
+  }
+  async function editOrder(e) {
+    const p=e.payload||{};
+    const merchantEdit=e.action==='editMerchantOrder';
+    if(merchantEdit)requireMerchant();
+    return db.runTransaction(async tx=>{
+      const o=await get(tx,'orders',p.id);
+      check(o&&(merchantEdit||o.submittedBy===context.OPENID),'FORBIDDEN');
+      check((o.status==='pending'||merchantEdit&&o.status==='accepted')&&!o.demoPaid&&o.paymentStatus==='unpaid'&&!o.activePaymentId&&!o.paidPaymentId,'ORDER_NOT_EDITABLE');
+      validators.assertVersion(o.version,p.version);
+      const session=await get(tx,'sessions',o.sessionId);
+      const member=await get(tx,'session_members',hash(o.sessionId+':'+context.OPENID));
+      const table=await get(tx,'tables',o.tableId);
+      check(session?.status==='open'&&table?.active&&table.currentSessionId===session._id,'SESSION_CLOSED');
+      if(!merchantEdit)check(member?.active,'FORBIDDEN');
+      const storeDoc=await store();const shop=await get(tx,'stores',storeDoc._id);
+      check(shop?.open,'STORE_CLOSED');await lock(tx);
+      validators.validateCart(p.lines);
+      check(p.lines.every(line=>o.items.some(i=>i.dishId===line.dishId)),'ORDER_ITEMS_ONLY');
+      const dishes=await Promise.all(p.lines.map(l=>get(tx,'dishes',l.dishId)));
+      const cats=await Promise.all([...new Set(dishes.filter(Boolean).map(d=>d.categoryId))].map(id=>get(tx,'categories',id)));
+      check(cats.every(c=>c?.active&&c.onSale!==false),'DISH_UNAVAILABLE');
+      const priced=validators.priceOrder(p.lines,dishes.filter(Boolean));
+      let dining=o.dining;
+      if(dining?.charged&&p.dining) {
+        check(session.diningFeeOrderId===o._id,'VERSION_CONFLICT');
+        dining={...createDining({...p.dining,people:dining.people,cutleryPrice:dining.cutleryPrice,napkinPrice:dining.napkinPrice},shop),charged:true};
+        await tx.collection('sessions').doc(session._id).update({data:{dining,updatedAt:Date.now()}});
+      } else {
+        await tx.collection('sessions').doc(session._id).update({data:{updatedAt:Date.now()}});
+      }
+      const patch={...priced,foodTotal:priced.total,dining,total:priced.total+(dining?.total||0),note:text(p.note||'',100,'INVALID_NOTE',true),version:o.version+1,updatedAt:Date.now()};
+      await tx.collection('orders').doc(o._id).update({data:patch});
+      return publicOrder({...o,...patch});
+    });
   }
   async function orders(e) {
     const mode=e.payload?.merchant===true;if(mode)requireMerchant();
@@ -210,7 +279,16 @@ function createService(db, context, identity, validators) {
     if(e.action==='orders')return orders(e);
     if(['getDining','setDining'].includes(e.action))return dining(e);
     if(e.action==='submitOrder')return submit(e);
-    if(['payDemo','updateOrder','cancelCustomerOrder'].includes(e.action))return orderAction(e);
+    if(e.action==='getBill')return bill(e);
+    if(e.action==='settleSession')return bill(e,true);
+    if(['editCustomerOrder','editMerchantOrder'].includes(e.action))return editOrder(e);
+    if(e.action==='payDemo'){
+      const o=await get(db,'orders',e.payload?.id);check(o&&o.submittedBy===context.OPENID,'FORBIDDEN');
+      check(o.status!=='cancelled','INVALID_ORDER_TRANSITION');
+      if(!o.demoPaid)await bill({payload:{sessionId:o.sessionId}},true);
+      return publicOrder(await get(db,'orders',o._id));
+    }
+    if(['updateOrder','cancelCustomerOrder'].includes(e.action))return orderAction(e);
     return mutate(e);
   }};
 }

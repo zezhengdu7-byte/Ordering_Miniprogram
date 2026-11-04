@@ -1,139 +1,86 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const auth_1 = require("../../utils/auth");
+const cloud_repository_1 = require("../../utils/cloud-repository");
 const table_service_1 = require("../../utils/table-service");
+const statusText = { pending: '待接单', accepted: '制作中', completed: '已完成', cancelled: '已取消' };
 Page((0, auth_1.merchantPage)({
-    data: { tables: [], name: '', editorOpen: false, detail: null, error: '', busy: false, version: 'release', progress: '' },
+    data: {
+        tables: [], totalCount: 0, occupiedCount: 0,
+        currentTotalText: '0.00', currentOrderCount: 0, pendingCount: 0, error: ''
+    },
     async onShow() { await this.refresh(); },
+    async onPullDownRefresh() {
+        await this.refresh();
+        wx.stopPullDownRefresh();
+    },
     async refresh() {
         try {
-            const r = await (0, table_service_1.tableCall)('list');
-            this.setData({ tables: r.tables, error: '' });
+            const [tableResult] = await Promise.all([(0, table_service_1.tableCall)('list'), (0, cloud_repository_1.syncOrders)(true)]);
+            const allOrders = (0, cloud_repository_1.orderView)(true);
+            let currentOrderCount = 0, pendingCount = 0, currentTotal = 0;
+            const tables = tableResult.tables.map((table) => {
+                const tableOrders = table.currentSessionId ? allOrders.filter(order => order.tableId === table.id && order.sessionId === table.currentSessionId) : [];
+                const validOrders = tableOrders.filter(order => order.status !== 'cancelled');
+                const total = validOrders.reduce((sum, order) => sum + order.total, 0);
+                currentOrderCount += validOrders.length;
+                pendingCount += validOrders.filter(order => order.status === 'pending').length;
+                currentTotal += total;
+                return {
+                    ...table,
+                    occupied: !!table.currentSessionId,
+                    orderCount: validOrders.length,
+                    totalText: (0, cloud_repository_1.money)(total),
+                    pendingCount: validOrders.filter(order => order.status === 'pending').length,
+                    orders: tableOrders.map(order => ({
+                        ...order,
+                        statusText: statusText[order.status] || order.status,
+                        totalText: (0, cloud_repository_1.money)(order.total),
+                        sourceText: order.source === 'merchant-assist' ? '商家代下' : '顾客扫码'
+                    }))
+                };
+            });
+            this.setData({
+                tables, error: '', totalCount: tables.length,
+                occupiedCount: tables.filter((table) => table.occupied).length,
+                currentTotalText: (0, cloud_repository_1.money)(currentTotal), currentOrderCount, pendingCount
+            });
         }
         catch (e) {
-            this.setData({ tables: [], error: e.message });
+            this.setData({ error: e.message || '桌台数据加载失败' });
         }
     },
-    async batchGenerate() {
-        if (this.data.busy)
+    openTable(e) {
+        const table = this.data.tables.find((t) => t.id === e.currentTarget.dataset.id);
+        if (!table)
             return;
-        this.setData({ busy: true, progress: '正在准备云端桌台…' });
-        const failed = [];
-        try {
-            for (let i = 1; i <= 30; i++) {
-                const name = 'A' + String(i).padStart(2, '0');
-                this.setData({ progress: `正在生成 ${name}（${i}/30）` });
-                try {
-                    try {
-                        await (0, table_service_1.tableCall)('add', { name });
-                    }
-                    catch (e) {
-                        if (e.message !== '桌号已存在')
-                            throw e;
-                    }
-                    const list = await (0, table_service_1.tableCall)('list');
-                    const table = list.tables.find((t) => t.name.toUpperCase() === name);
-                    if (!table)
-                        throw new Error('未找到桌台');
-                    await (0, table_service_1.tableCall)('code', { tableId: table.id, version: 'release' });
-                }
-                catch (e) {
-                    failed.push(name);
-                    this.setData({ error: e.message });
-                    if (i === 1)
-                        throw e;
-                }
-            }
-            this.setData({ progress: failed.length ? `已完成，${failed.join('、')}未生成，点击批量生成可补齐。` : 'A01–A30 正式版桌码已全部保存。' });
-            await this.refresh();
-        }
-        catch (e) {
-            this.setData({ progress: '生成未完成，重试会保留已生成桌码。', error: e.message });
-        }
-        finally {
-            this.setData({ busy: false });
-        }
+        wx.navigateTo({ url: '/pages/table-orders/index?tableId=' + encodeURIComponent(table.id) + '&sessionId=' + encodeURIComponent(table.currentSessionId || '') });
     },
-    add() { this.setData({ name: '', editorOpen: true }); },
-    input(e) { this.setData({ name: e.detail.value }); },
-    close() { this.setData({ editorOpen: false, detail: null }); },
-    noop() { },
-    async save() {
-        if (this.data.busy)
+    async assist(e) {
+        var _a;
+        if (this.enteringTable)
             return;
-        this.setData({ busy: true });
+        this.enteringTable = true;
         try {
-            const name = this.data.name.trim().normalize('NFKC').toUpperCase();
-            await (0, table_service_1.tableCall)('add', { name });
-            this.close();
-            await this.refresh();
-            const table = this.data.tables.find((t) => t.name === name);
-            if (table) {
-                await (0, table_service_1.tableCall)('code', { tableId: table.id, version: 'release' });
-                await this.refresh();
-            }
-        }
-        catch (e) {
-            wx.showToast({ title: e.message, icon: 'none' });
-        }
-        finally {
-            this.setData({ busy: false });
-        }
-    },
-    confirmAction(e) {
-        const { id, action } = e.currentTarget.dataset;
-        const close = action === 'close';
-        wx.showModal({ title: close ? '结束本次用餐？' : '删除桌台？', content: close ? '结束后当前顾客权限失效，下次扫码会创建新一次用餐。' : '旧桌码将失效；进行中的用餐必须先结束。', success: async (r) => {
-                if (!r.confirm)
+            const tableId = e.currentTarget.dataset.id;
+            const target = this.data.tables.find((t) => t.id === tableId);
+            const sameSession = !!(target === null || target === void 0 ? void 0 : target.currentSessionId) && target.currentSessionId === ((_a = (0, table_service_1.tableState)().binding) === null || _a === void 0 ? void 0 : _a.sessionId);
+            if (!sameSession && (0, cloud_repository_1.read)().cart.length) {
+                const confirmed = await new Promise(resolve => wx.showModal({
+                    title: '切换点单桌台', content: '当前购物车还有菜品，切换桌台将清空这些菜品。',
+                    success: (r) => resolve(r.confirm), fail: () => resolve(false)
+                }));
+                if (!confirmed)
                     return;
-                try {
-                    await (0, table_service_1.tableCall)(action, { tableId: id });
-                    await this.refresh();
-                }
-                catch (e) {
-                    wx.showToast({ title: e.message, icon: 'none' });
-                }
-            } });
-    },
-    toggleCode(e) {
-        const id = e.currentTarget.dataset.id;
-        const table = this.data.tables.find((t) => t.id === id);
-        const enabling = !table.qrEnabled;
-        wx.showModal({ title: enabling ? '启用桌码？' : '停用桌码？', content: enabling ? '顾客可重新扫描此桌码入座点单。' : '停用后顾客扫此桌码将无法入座；进行中的用餐不受影响。', success: async (r) => {
-                if (!r.confirm)
-                    return;
-                try {
-                    await (0, table_service_1.tableCall)('setQrEnabled', { tableId: id, enabled: enabling });
-                    await this.refresh();
-                }
-                catch (e) {
-                    wx.showToast({ title: e.message, icon: 'none' });
-                }
-            } });
-    },
-    code(e) { void this.generate(e.currentTarget.dataset.id); },
-    async generate(id) {
-        if (this.data.busy)
-            return;
-        this.setData({ busy: true });
-        wx.showLoading({ title: '正在生成桌码', mask: true });
-        try {
-            const r = await (0, table_service_1.tableCall)('code', { tableId: id, version: 'release' });
-            const download = await wx.cloud.downloadFile({ fileID: r.fileID });
-            const table = this.data.tables.find((t) => t.id === id);
-            this.setData({ detail: { id, name: table === null || table === void 0 ? void 0 : table.name, path: download.tempFilePath } });
-            await this.refresh();
-        }
-        catch (e) {
-            wx.showModal({ title: '桌码生成失败', content: e.message, showCancel: false });
+            }
+            await (0, table_service_1.enterMerchantTable)(tableId);
+            if (!sameSession)
+                (0, cloud_repository_1.clearCart)();
+            wx.switchTab({ url: '/pages/menu/index' });
         }
         finally {
-            wx.hideLoading();
-            this.setData({ busy: false });
+            this.enteringTable = false;
         }
     },
-    saveImage() {
-        wx.saveImageToPhotosAlbum({ filePath: this.data.detail.path, success: () => wx.showToast({ title: '已保存，可打印' }), fail: () => wx.showModal({ title: '保存未完成', content: '请允许保存到相册后重试，也可以点击桌码预览后长按保存。', showCancel: false }) });
-    },
-    preview() { wx.previewImage({ urls: [this.data.detail.path] }); }
+    qr() { wx.navigateTo({ url: '/pages/qr-manage/index' }); }
 }));

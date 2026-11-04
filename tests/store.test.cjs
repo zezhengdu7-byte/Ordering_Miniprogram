@@ -15,22 +15,32 @@ test('分区排序持久化，拒绝重复名称和删除非空分区', () => {
   s.saveCategory(null,'新品');const id=s.read().categories.at(-1).id; s.saveCategory(id,'新推荐');assert.equal(s.read().categories.at(-1).name,'新推荐');s.deleteCategory(id);assert.equal(s.read().categories.length,8);
 });
 test('不同辣度分行，同款累加并限制数量', () => {
-  s.changeCart('lamb','微辣',1);s.changeCart('lamb','微辣',2);s.changeCart('lamb','不辣',1);
-  assert.equal(s.cartView().items.length,2);assert.equal(s.cartView().count,4);assert.equal(s.cartView().total,1000);
-  assert.throws(()=>s.changeCart('lamb','微辣',99),/99/);s.changeCart('lamb','不辣',-1);assert.equal(s.cartView().items.length,1);
+  s.changeCart('wings','微辣',1);s.changeCart('wings','微辣',2);s.changeCart('wings','不辣',1);
+  assert.equal(s.cartView().items.length,2);assert.equal(s.cartView().count,4);assert.equal(s.cartView().total,3200);
+  assert.throws(()=>s.changeCart('wings','微辣',99),/99/);s.changeCart('wings','不辣',-1);assert.equal(s.cartView().items.length,1);
+});
+test('5串起点首次加5串，逐串减少至5串后再次减少直接移除', () => {
+  s.changeCart('lamb','微辣',1);
+  assert.equal(s.cartView().items[0].quantity,5);
+  assert.equal(s.cartView().items[0].minQuantity,5);
+  s.changeCart('lamb','微辣',1);assert.equal(s.cartView().items[0].quantity,6);
+  s.changeCart('lamb','微辣',-1);assert.equal(s.cartView().items[0].quantity,5);
+  s.changeCart('lamb','微辣',-1);assert.equal(s.cartView().count,0);
+  s.changeCart('lamb','微辣',1);assert.equal(s.cartView().count,5);
+  s.changeDishQuantity('lamb',-1);assert.equal(s.cartView().items.length,0);
 });
 test('商家改价后重新计价，已提交的历史订单保留价格快照', () => {
-  s.changeCart('lamb','微辣',2);const dish=s.read().dishes.find(d=>d.id==='lamb');
+  s.changeCart('wings','微辣',2);const dish=s.read().dishes.find(d=>d.id==='wings');
   s.saveDish({...dish,price:750});assert.equal(s.cartView().total,1500);
   const order=s.submitOrder('少盐');assert.equal(order.total,1500);assert.equal(s.cartView().count,0);
   s.saveDish({...dish,price:900});assert.equal(s.read().orders[0].items[0].price,750);
   assert.throws(()=>s.submitOrder(''),/先选/);
 });
 test('下架与售罄阻止新增和提交，仍允许移除购物车', () => {
-  s.changeCart('lamb','微辣',1);s.setDishStatus('lamb','soldOut');
-  assert.throws(()=>s.changeCart('lamb','微辣',1),/无法点单/);assert.throws(()=>s.submitOrder(''),/售罄/);
-  s.changeCart('lamb','微辣',-1);assert.equal(s.cartView().count,0);
-  s.setDishStatus('wings','onSale');assert.throws(()=>s.changeCart('wings','不辣',1),/无法点单/);
+  s.changeCart('wings','微辣',1);s.setDishStatus('wings','soldOut');
+  assert.throws(()=>s.changeCart('wings','微辣',1),/无法点单/);assert.equal(s.cartView().count,0);assert.throws(()=>s.submitOrder(''),/先选/);
+  s.changeCart('wings','微辣',-1);assert.equal(s.cartView().count,0);
+  s.setDishStatus('beef-mini','onSale');assert.throws(()=>s.changeCart('beef-mini','不辣',1),/无法点单/);
 });
 test('删除菜品清理购物车，保留历史订单', () => {
   s.changeCart('lamb','不辣',1);s.submitOrder('');s.changeCart('lamb','不辣',1);s.deleteDish('lamb');
@@ -48,14 +58,14 @@ test('保存菜品校验价格与分区',()=>{
   assert.throws(()=>s.saveDish({...d,categoryId:'missing'}),/分区/);
 });
 test('菜单快捷加减沿用口味，减至零清空；售罄仍可减少',()=>{
-  s.changeDishQuantity('lamb',1);s.changeDishQuantity('lamb',1);
-  assert.equal(s.cartView().count,2);assert.equal(s.cartView().total,500);assert.equal(s.cartView().items[0].flavor,'微辣');
-  s.changeCart('lamb','不辣',1);s.changeDishQuantity('lamb',1);
-  assert.equal(s.cartView().items.find(i=>i.flavor==='不辣').quantity,2);
-  s.changeDishQuantity('lamb',-1);s.changeDishQuantity('lamb',-1);
+  s.changeDishQuantity('wings',1);s.changeDishQuantity('wings',1);
+  assert.equal(s.cartView().count,2);assert.equal(s.cartView().total,1600);assert.equal(s.cartView().items[0].flavor,'不辣');
+  s.changeCart('wings','中辣',1);s.changeDishQuantity('wings',1);
+  assert.equal(s.cartView().items.find(i=>i.flavor==='中辣').quantity,2);
+  s.changeDishQuantity('wings',-1);s.changeDishQuantity('wings',-1);
   assert.equal(s.cartView().items.length,1);assert.equal(s.cartView().count,2);
-  s.setDishStatus('lamb','soldOut');assert.throws(()=>s.changeDishQuantity('lamb',1),/无法点单/);
-  s.changeDishQuantity('lamb',-1);s.changeDishQuantity('lamb',-1);s.changeDishQuantity('lamb',-1);
+  s.setDishStatus('wings','soldOut');assert.throws(()=>s.changeDishQuantity('wings',1),/无法点单/);
+  s.changeDishQuantity('wings',-1);s.changeDishQuantity('wings',-1);s.changeDishQuantity('wings',-1);
   assert.equal(s.cartView().count,0);assert.equal(s.cartView().total,0);
   s.changeDishQuantity('lemon',1);assert.equal(s.cartView().items[0].flavor,'标准');
 });
@@ -66,9 +76,9 @@ test('旧版数据保留订单购物车，并补齐新增门店设置', () => {
   const migrated=s.read();assert.equal(migrated.orders[0].id,order.id);assert.equal(migrated.cart[0].quantity,1);assert.equal(migrated.shop.open,true);assert.equal(migrated.tables.length,3);
 });
 test('店铺休息拒绝下单，开店后恢复并保存店名欢迎词', () => {
-  s.saveShop({name:' 测试烧烤 ',welcome:' 欢迎来吃 ',open:false});s.changeCart('lamb','微辣',1);
+  s.saveShop({name:' 测试烧烤 ',welcome:' 欢迎来吃 ',open:false});s.changeCart('wings','微辣',1);
   assert.throws(()=>s.submitOrder(''),/休息/);assert.equal(s.cartView().count,1);
-  s.saveShop({...s.read().shop,open:true});assert.equal(s.submitOrder('').total,250);assert.equal(s.read().shop.name,'测试烧烤');
+  s.saveShop({...s.read().shop,open:true});assert.equal(s.submitOrder('').total,800);assert.equal(s.read().shop.name,'测试烧烤');
   assert.throws(()=>s.saveShop({name:'',welcome:'欢迎',open:true}),/店名/);
 });
 test('桌台唯一校验、切桌保护、未完成订单阻止改名删除，历史桌号保留', () => {
@@ -101,4 +111,24 @@ test('升级纸质菜单保留自建内容及订单，升级只执行一次', ()
   const dish=upgraded.dishes.find(d=>d.id==='lamb');s.saveDish({...dish,price:800});
   s.deleteDish('pork');assert.equal(s.read().dishes.find(d=>d.id==='lamb').price,800);
   assert.equal(s.read().dishes.some(d=>d.id==='pork'),false);
+});
+
+test('订单餐具纸巾按商品行展示数量与金额，未收费加单不重复展示',()=>{
+  const order={items:[{name:'羊肉',unit:'串',price:250,quantity:7,flavor:'微辣'}],dining:{charged:true,people:1,cutlery:2,napkins:1,cutleryPrice:100,napkinPrice:200}};
+  const lines=s.orderDisplayItems(order);
+  assert.deepEqual(lines.map(i=>[i.name,i.quantity,i.priceText]),[['羊肉',7,'17.50'],['餐具',2,'2.00'],['餐巾纸',1,'2.00']]);
+  assert.equal(order.items.length,1);
+  assert.equal(s.orderDisplayItems({...order,dining:{...order.dining,charged:false}}).length,1);
+  assert.equal(s.orderDisplayItems({...order,dining:{...order.dining,cutlery:0,napkins:0}}).length,1);
+});
+
+test('云端售罄同步自动移除全部口味，保留其他商品且恢复销售不恢复购物车',()=>{
+ s.changeCart('wings','微辣',1);s.changeCart('wings','中辣',2);s.changeCart('lemon','标准',1);
+ const remote=structuredClone(s.read());remote.dishes.find(d=>d.id==='wings').soldOut=true;
+ s.cacheCloudCatalog(remote);
+ assert.deepEqual(s.read().cart.map(i=>i.dishId),['lemon']);
+ remote.dishes.find(d=>d.id==='wings').soldOut=false;s.cacheCloudCatalog(remote);
+ assert.deepEqual(s.read().cart.map(i=>i.dishId),['lemon']);
+ s.changeCart('wings','微辣',1);remote.dishes.find(d=>d.id==='wings').soldOut=true;
+ s.cacheCloudState(remote);assert.deepEqual(s.read().cart.map(i=>i.dishId),['lemon']);
 });

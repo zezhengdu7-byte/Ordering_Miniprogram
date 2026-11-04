@@ -9,8 +9,10 @@
     "pages/dish-manage/index",
     "pages/shop-settings/index",
     "pages/table-manage/index",
+    "pages/qr-manage/index",
     "pages/printer-settings/index",
-    "pages/category-manage/index"
+    "pages/category-manage/index",
+    "pages/table-orders/index"
   ],
   "window": {
     "navigationBarTitleText": "炭火里 · 烧烤",

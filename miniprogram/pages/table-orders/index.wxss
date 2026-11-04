@@ -1,0 +1,4 @@
+@import "../admin-orders/index.wxss";
+.table-session-summary{margin-bottom:22rpx}.end-dining{width:100%;margin-top:20rpx}.session-error{color:#b74734}
+
+.table-session-summary .end-dining[disabled]{opacity:1;background:#eee6dc;color:#786553}

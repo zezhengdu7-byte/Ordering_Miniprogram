@@ -5,7 +5,7 @@ let modal;
 global.wx = {
   getStorageSync: key => memory.get(key),
   setStorageSync: (key, value) => memory.set(key, structuredClone(value)),
-  showModal: options => { modal = options; }, showToast() {}
+  showModal: options => { modal = options; }, showToast() {}, setNavigationBarTitle() {}
 };
 require('../miniprogram/config').cloudConfig.businessCloud = false;
 const store = require('../miniprogram/utils/store');
@@ -18,8 +18,8 @@ const order = () => { store.changeCart('lamb', '不辣', 1); return store.submit
 beforeEach(() => { store.reset(); modal = null; });
 
 test('分区下架隐藏顾客菜单，阻止旧购物车提交；重新上架保留菜品原状态', () => {
-  store.changeCart('lamb', '不辣', 1);
-  const other = store.read().dishes.find(d => d.categoryId === 'meat' && d.id !== 'lamb');
+  store.changeCart('wings', '不辣', 1);
+  const other = store.read().dishes.find(d => d.categoryId === 'meat' && d.id !== 'wings');
   store.setDishStatus(other.id, 'soldOut');
   const dishes = store.read().dishes;
   store.setCategoryStatus('meat');
@@ -27,13 +27,13 @@ test('分区下架隐藏顾客菜单，阻止旧购物车提交；重新上架�
   assert.ok(!page.data.categories.some(c => c.id === 'meat'));
   assert.ok(!page.data.dishes.some(d => d.categoryId === 'meat'));
   assert.equal(store.cartView().items[0].available, false);
-  assert.throws(() => store.changeCart('lamb', '不辣', 1), /无法点单/);
+  assert.throws(() => store.changeCart('wings', '不辣', 1), /无法点单/);
   assert.throws(() => store.submitOrder(''), /分区下架/);
-  store.changeCart('lamb', '不辣', -1); assert.equal(store.cartView().count, 0);
+  store.changeCart('wings', '不辣', -1); assert.equal(store.cartView().count, 0);
   store.setCategoryStatus('meat');
   assert.deepEqual(store.read().dishes, dishes);
   page.refresh(); assert.ok(page.data.categories.some(c => c.id === 'meat'));
-  store.changeCart('lamb', '不辣', 1); assert.ok(store.submitOrder('').total > 0);
+  store.changeCart('wings', '不辣', 1); assert.ok(store.submitOrder('').total > 0);
 });
 
 test('全部分区下架时顾客菜单为空；新建分区默认上架，删除非空分区被阻止', () => {
@@ -72,4 +72,14 @@ test('顾客不能取消已付款订单；商家也不能取消已完成订单',
   modal.success({ confirm: true }); assert.equal(store.read().orders[0].status, 'pending');
   store.updateOrder(original.id, 'accepted'); store.updateOrder(original.id, 'completed');
   assert.throws(() => store.cancelMerchantOrder(original.id), /已结束/);
+});
+
+test('制作中订单只有商家可打开修改并保存，完成后不可修改',async()=>{
+ const original=order();store.updateOrder(original.id,'accepted');
+ const event={currentTarget:{dataset:{id:original.id}}};
+ const customer=instance(orderPage(false));customer.edit(event);assert.equal(customer.data.editing,null);
+ const merchant=instance(orderPage(true));merchant.edit(event);assert.equal(merchant.data.editing.status,'accepted');
+ merchant.editNote({detail:{value:'制作中改为少盐'}});await merchant.saveEdit();
+ assert.equal(store.read().orders[0].note,'制作中改为少盐');assert.equal(store.read().orders[0].status,'accepted');
+ store.updateOrder(original.id,'completed');merchant.edit(event);assert.equal(merchant.data.editing,null);
 });

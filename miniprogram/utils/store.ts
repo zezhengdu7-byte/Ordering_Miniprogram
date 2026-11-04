@@ -4,14 +4,15 @@ export interface Category { id: string; name: string; onSale?: boolean }
 export interface Dish {
   id: string; categoryId: string; name: string; description: string;
   price: number; unit: string; image: string; onSale: boolean; soldOut: boolean;
-  spicy: boolean; tag: string;
+  spicy: boolean; tag: string; minQuantity?: number;
 }
 export interface CartItem { key: string; dishId: string; flavor: string; quantity: number }
-export interface OrderItem { name: string; unit: string; price: number; quantity: number; flavor: string }
+export interface OrderItem { dishId?: string; minQuantity?: number; name: string; unit: string; price: number; quantity: number; flavor: string }
 export interface Order {
   id: string; number: string; table: string; createdAt: number;
   items: OrderItem[]; total: number; note: string; dining?: any; foodTotal?: number;
   status: 'pending' | 'accepted' | 'completed' | 'cancelled'; paid: boolean;
+  settledAt?: number; tableId?: string; sessionId?: string; source?: string; version?: number;
 }
 export interface Shop { name: string; welcome: string; open: boolean; cutleryPrice?: number | null; napkinPrice?: number | null }
 export interface Table { id: string; name: string }
@@ -133,21 +134,33 @@ export function saveDish(dish: Dish): void {
   const d = { ...dish, name: dish.name.trim(), unit: dish.unit.trim() };
   const i = s.dishes.findIndex(x => x.id === d.id);
   if (i >= 0) s.dishes[i] = d; else s.dishes.push(d);
+  if (d.soldOut) s.cart = s.cart.filter(line => line.dishId !== d.id);
   write(s);
 }
 export function setDishStatus(id: string, field: 'onSale' | 'soldOut'): void {
   const s = read(); const d = s.dishes.find(d => d.id === id); if (!d) return;
-  d[field] = !d[field]; write(s);
+  d[field] = !d[field];
+  if (d.soldOut) s.cart = s.cart.filter(line => line.dishId !== id);
+  write(s);
 }
 export function deleteDish(id: string): void {
   const s = read(); s.dishes = s.dishes.filter(d => d.id !== id); s.cart = s.cart.filter(c => c.dishId !== id); write(s);
 }
+export const minQuantityOf = (d: Dish): number => {
+  if (d.minQuantity && d.minQuantity > 1) return d.minQuantity;
+  if ((d.description || '').indexOf('5串起点') >= 0) return 5;
+  return 1;
+};
 export function changeCart(dishId: string, flavor: string, delta: number): void {
   if (!Number.isInteger(delta)) throw new Error('数量无效');
   const s = read(); const d = s.dishes.find(x => x.id === dishId);
   if (!d || (delta > 0 && (!d.onSale || d.soldOut || !s.categories.some(c => c.id === d.categoryId && c.onSale !== false)))) throw new Error('该菜品暂时无法点单');
   const key = `${dishId}:${flavor}`; const i = s.cart.findIndex(c => c.key === key);
-  const q = (i >= 0 ? s.cart[i].quantity : 0) + delta;
+  const current = i >= 0 ? s.cart[i].quantity : 0;
+  const min = minQuantityOf(d);
+  let q = current + delta;
+  if (delta < 0 && q < min) q = 0;
+  if (delta > 0 && current === 0) q = Math.max(q, min);
   if (q > 99) throw new Error('同款菜品最多添加 99 份');
   if (q <= 0) { s.cart = s.cart.filter(c => c.key !== key); }
   else if (i >= 0) s.cart[i].quantity = q;
@@ -163,13 +176,13 @@ export function changeDishQuantity(dishId: string, delta: number): void {
   if (!dish) throw new Error('菜品不存在');
   const line = state.cart.filter(item => item.dishId === dishId).slice(-1)[0];
   if (delta < 0 && !line) return;
-  changeCart(dishId, line?.flavor || (dish.spicy ? '微辣' : '标准'), delta);
+  changeCart(dishId, line?.flavor || (dish.spicy ? '不辣' : '标准'), delta);
 }
 export function cartView() {
   const s = read();
   const items = s.cart.map(c => {
     const d = s.dishes.find(d => d.id === c.dishId);
-    return d ? { ...c, ...d, available: d.onSale && !d.soldOut && s.categories.some(category => category.id === d.categoryId && category.onSale !== false), priceText: money(d.price), subtotalText: money(d.price * c.quantity) } : null;
+    return d ? { ...c, ...d, available: d.onSale && !d.soldOut && s.categories.some(category => category.id === d.categoryId && category.onSale !== false), minQuantity: minQuantityOf(d), priceText: money(d.price), subtotalText: money(d.price * c.quantity) } : null;
   }).filter((x): x is NonNullable<typeof x> => !!x);
   return { items, count: items.reduce((v, c) => v + c.quantity, 0), total: items.reduce((v, c) => v + c.price * c.quantity, 0) };
 }
@@ -181,7 +194,7 @@ export function submitOrder(note: string): Order {
   const n = s.nextOrder++;
   const o: Order = {
     id: `order-${Date.now()}-${n}`, number: `A${String(n).padStart(3, '0')}`, table: s.currentTable, createdAt: Date.now(),
-    items: c.items.map(i => ({ name: i.name, unit: i.unit, price: i.price, quantity: i.quantity, flavor: i.flavor })),
+    items: c.items.map(i => ({ dishId:i.id,minQuantity:minQuantityOf(i),name: i.name, unit: i.unit, price: i.price, quantity: i.quantity, flavor: i.flavor })),
     total: c.total, note: note.trim().slice(0, 100), status: 'pending', paid: false
   };
   s.orders.unshift(o); s.cart = []; write(s); return o;
@@ -189,7 +202,7 @@ export function submitOrder(note: string): Order {
 export function payDemo(id: string): void {
   const s = read(); const o = s.orders.find(o => o.id === id);
   if (!o || o.status === 'cancelled') throw new Error('订单不可支付');
-  o.paid = true; write(s);
+  o.paid = true; o.settledAt = o.settledAt || Date.now(); write(s);
 }
 export function updateOrder(id: string, next: Order['status']): void {
   const s = read(); const o = s.orders.find(o => o.id === id);
@@ -205,10 +218,19 @@ export function cancelMerchantOrder(id: string): void {
   order.status = 'cancelled'; write(s);
 }
 export const statusNames = { pending: '待接单', accepted: '制作中', completed: '已完成', cancelled: '已取消' };
+export function orderDisplayItems(order: Order) {
+  const items: (OrderItem & {service?:string})[] = order.items.map(i => ({ ...i }));
+  const dining = order.dining;
+  if (dining?.charged) {
+    if (dining.cutlery > 0) items.push({ service:'cutlery',name: '餐具', unit: '套', price: dining.cutleryPrice, quantity: dining.cutlery, flavor: '' });
+    if (dining.napkins > 0) items.push({ service:'napkins',name: '餐巾纸', unit: '包', price: dining.napkinPrice, quantity: dining.napkins, flavor: '' });
+  }
+  return items.map(i => ({ ...i, priceText: money(i.price * i.quantity) }));
+}
 export function orderView() {
   return read().orders.map(o => {
     const t = new Date(o.createdAt); const pad = (n: number) => String(n).padStart(2, '0');
-    return { ...o, statusText: statusNames[o.status], totalText: money(o.total), timeText: `${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`, items: o.items.map(i => ({ ...i, priceText: money(i.price * i.quantity) })) };
+    return { ...o, statusText: statusNames[o.status], totalText: money(o.total), timeText: `${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`, items: orderDisplayItems(o) };
   });
 }
 
@@ -216,6 +238,7 @@ export function orderView() {
 export function cacheCloudCatalog(snapshot: { categories: Category[]; dishes: Dish[]; shop: Shop; tables: Table[]; printer?: Printer }): void {
   const state = read();
   state.categories = snapshot.categories; state.dishes = snapshot.dishes; state.shop = snapshot.shop; state.tables = snapshot.tables;
+  state.cart = state.cart.filter(line => snapshot.dishes.some(d => d.id === line.dishId && !d.soldOut));
   if (snapshot.printer) state.printer = snapshot.printer;
   if (!state.tables.some(t => t.name === state.currentTable)) state.currentTable = state.tables[0]?.name || '';
   write(state);
@@ -226,5 +249,17 @@ export function cacheCloudState(remote: State): void {
   const current=read();
   if (!wx.getStorageSync('charcoal-local-orders-archive')) wx.setStorageSync('charcoal-local-orders-archive', current.orders);
   write({ ...current, categories:remote.categories,dishes:remote.dishes,orders:remote.orders,shop:remote.shop,
-    cart:current.cart.filter(line=>remote.dishes.some(d=>d.id===line.dishId)),menuVersion:MENU_VERSION });
+    cart:current.cart.filter(line=>remote.dishes.some(d=>d.id===line.dishId&&!d.soldOut)),menuVersion:MENU_VERSION });
+}
+
+export function editPendingOrder(id:string,lines:{dishId:string;flavor:string;quantity:number}[],note:string,merchant=false) {
+  const state=read(),order=state.orders.find(o=>o.id===id);
+  if(!order||!(order.status==='pending'||merchant&&order.status==='accepted')||order.paid)throw new Error('订单当前状态不允许修改');
+  if(!lines.length)throw new Error('请至少保留一道菜，或取消订单');
+  const items=lines.map(line=>{
+    const d=state.dishes.find(d=>d.id===line.dishId);
+    if(!d||!d.onSale||d.soldOut||!Number.isInteger(line.quantity)||line.quantity<minQuantityOf(d)||line.quantity>99)throw new Error('菜品或数量无效');
+    return {dishId:d.id,name:d.name,unit:d.unit,price:d.price,flavor:line.flavor,quantity:line.quantity,minQuantity:minQuantityOf(d)};
+  });
+  order.items=items;order.total=items.reduce((n,i)=>n+i.price*i.quantity,0);order.note=note.trim().slice(0,100);write(state);
 }

@@ -12,18 +12,26 @@ function createService(cloud) {
     try {
       assert(context.APPID === APP && context.OPENID, '微信身份或小程序不匹配');
       const action = event.action;
-      if (action === 'join') {
-        await resolveIdentity(db, context, STORE);
-        assert(typeof event.token === 'string' && /^[A-Za-z0-9_-]{22}$/.test(event.token), '桌码无效，请重新扫码');
-        const tokenHash = hash(event.token);
-        const found = await db.collection('tables').where({ qrTokenHash: tokenHash, active: true }).limit(1).get();
-        assert(found.data.length, '桌码已失效，请联系店员');
-        assert(found.data[0].qrEnabled !== false, '桌码已停用，请联系店员');
-        const tableId = found.data[0]._id;
+      if (action === 'join' || action === 'merchantJoin') {
+        const assisted = action === 'merchantJoin';
+        let tableId, tokenHash;
+        if (assisted) {
+          await requireMerchant(db, context, STORE);
+          assert(typeof event.tableId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(event.tableId), '桌台无效');
+          tableId = event.tableId;
+        } else {
+          await resolveIdentity(db, context, STORE);
+          assert(typeof event.token === 'string' && /^[A-Za-z0-9_-]{22}$/.test(event.token), '桌码无效，请重新扫码');
+          tokenHash = hash(event.token);
+          const found = await db.collection('tables').where({ qrTokenHash: tokenHash, active: true }).limit(1).get();
+          assert(found.data.length, '桌码已失效，请联系店员');
+          tableId = found.data[0]._id;
+        }
         const sessionId = crypto.randomBytes(16).toString('hex');
         const binding = await db.runTransaction(async tx => {
-          const ref = tx.collection('tables').doc(tableId), t = (await ref.get()).data;
-          assert(t.active && t.qrTokenHash === tokenHash && t.qrEnabled !== false, '桌码已停用，请联系店员');
+          const ref = tx.collection('tables').doc(tableId), t = await optional(ref);
+          assert(t && t.active, '桌台不存在');
+          if (!assisted) assert(t.qrTokenHash === tokenHash && t.qrEnabled !== false, '桌码已停用，请联系店员');
           let session = t.currentSessionId ? await optional(tx.collection('sessions').doc(t.currentSessionId)) : null;
           if (!session || session.status !== 'open') {
             session = { _id: sessionId, tableId, tableName: t.name, status: 'open', unsettledOrderIds: [], closedAt: null, createdAt: Date.now(), updatedAt: Date.now() };
@@ -34,7 +42,7 @@ function createService(cloud) {
           // Every join writes the table and session: concurrent first scans/closing conflict and retry.
           await ref.update({ data: { currentSessionId: session._id, updatedAt: Date.now() } });
           await tx.collection('sessions').doc(session._id).update({ data: { updatedAt: Date.now() } });
-          await tx.collection('session_members').doc(hash(session._id + ':' + context.OPENID)).set({ data: { sessionId: session._id, openid: context.OPENID, active: true, lastSeenAt: Date.now(), createdAt: Date.now(), updatedAt: Date.now() } });
+          await tx.collection('session_members').doc(hash(session._id + ':' + context.OPENID)).set({ data: { sessionId: session._id, openid: context.OPENID, source: assisted ? 'merchant-assist' : 'table-code', active: true, lastSeenAt: Date.now(), createdAt: Date.now(), updatedAt: Date.now() } });
           return { tableId, tableName: t.name, sessionId: session._id };
         });
         return { ok: true, binding };
@@ -108,12 +116,27 @@ function createService(cloud) {
           if (action === 'remove') { assert(!t.currentSessionId, '请先结束本次用餐'); await r.update({ data: { active: false, updatedAt: Date.now() } }); return; }
           assert(t.currentSessionId, '当前没有进行中的用餐');
           const sid = t.currentSessionId;
+          if(event.sessionId)assert(event.sessionId===sid,'用餐会话已变化，请刷新重试');
           const session = (await tx.collection('sessions').doc(sid).get()).data;
-          assert(session.status === 'open' && !(session.unsettledOrderIds || []).length, '该桌还有未完成或未结算的订单');
+          assert(session.status === 'open', '本次用餐已结束');
+          if(event.confirmSettlement===true){
+            assert(event.sessionId===sid,'用餐会话已变化，请刷新重试');
+            const rows=await Promise.all((session.unsettledOrderIds||[]).map(id=>optional(tx.collection('orders').doc(id))));
+            assert(rows.every(o=>o&&o.sessionId===sid&&o.tableId===event.tableId),'订单数据异常，请刷新重试');
+            const unpaid=rows.filter(o=>o.status!=='cancelled'&&!o.demoPaid);
+            assert(unpaid.every(o=>o.status==='completed'),'还有订单未完成，请先处理');
+            const total=unpaid.reduce((sum,o)=>sum+o.total,0);
+            assert(Number.isSafeInteger(total)&&event.expectedTotal===total,'账单金额已变化，请刷新后重新确认');
+            const now=Date.now();
+            for(const o of unpaid){
+              assert(o.paymentStatus==='unpaid'&&!o.activePaymentId&&!o.paidPaymentId,'订单支付状态异常，请先核对');
+              await tx.collection('orders').doc(o._id).update({data:{demoPaid:true,settledAt:now,version:(o.version||0)+1,updatedAt:now}});
+            }
+          }else assert(!(session.unsettledOrderIds||[]).length,'该桌还有未完成或未结算的订单');
           const cart = (await tx.collection('carts').doc(sid).get()).data;
           assert(!cart.lines.length, '购物车非空，不能关桌');
           assert(sid === table.currentSessionId, '用餐会话已变化，请刷新重试');
-          await tx.collection('sessions').doc(sid).update({ data: { status: 'closed', closedAt: Date.now(), updatedAt: Date.now() } });
+          await tx.collection('sessions').doc(sid).update({ data: { status: 'closed', unsettledOrderIds: [], closedAt: Date.now(), updatedAt: Date.now() } });
           await r.update({ data: { currentSessionId: null, updatedAt: Date.now() } });
         });
         return { ok: true };

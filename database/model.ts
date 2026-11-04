@@ -14,13 +14,13 @@ export interface Category extends Document { name: string; sort: number; onSale:
 export interface Dish extends Document {
   categoryId: string; name: string; description: string; price: number; unit: string;
   imageFileId: string; onSale: boolean; soldOut: boolean; spicy: boolean; tag: string;
-  sort: number; active: boolean; version: number;
+  minQuantity?: number; sort: number; active: boolean; version: number;
 }
 export interface DiningTable extends Document {
   name: string; active: boolean; qrTokenHash: string; qrVersion: number; currentSessionId: string | null; codes?: { release: string };
 }
 export interface DiningSession extends Document {
-  tableId: string; tableName: string; status: 'open' | 'closed'; closedAt: number | null; unsettledOrderIds: string[]; dining?: Dining; diningFeeOrderId?: string | null;
+  tableId: string; tableName: string; status: 'open' | 'closed'; closedAt: number | null; settledAt?: number; settledTotal?: number; unsettledOrderIds: string[]; dining?: Dining; diningFeeOrderId?: string | null;
 }
 export interface SessionMember extends Document {
   sessionId: string; openid: string; active: boolean; lastSeenAt: number;
@@ -36,7 +36,7 @@ export interface Order extends Document {
   tableValidated: true; source: 'table-code'; paymentMode: 'demo'; demoPaid: boolean; number: string; businessDate: string;
   dining: Dining; foodTotal: number; items: OrderLine[]; total: number; note: string; status: OrderStatus;
   paymentStatus: PaymentStatus; activePaymentId: string | null; paidPaymentId: string | null;
-  acceptedAt: number | null; completedAt: number | null; cancelledAt: number | null; version: number;
+  settledAt?: number; acceptedAt: number | null; completedAt: number | null; cancelledAt: number | null; version: number;
 }
 export interface Payment extends Document {
   orderId: string; payerOpenid: string; requestId: string; outTradeNo: string;

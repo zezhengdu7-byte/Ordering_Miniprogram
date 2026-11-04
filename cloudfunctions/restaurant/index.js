@@ -1,7 +1,7 @@
 'use strict';
 const cloud = require('wx-server-sdk');
 const { resolveIdentity } = require('./access');
-const { priceOrder, assertVersion } = require('./invariants.cjs');
+const { validateCart, priceOrder, assertVersion } = require('./invariants.cjs');
 const { createService } = require('./service');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 exports.main = async event => {
@@ -23,7 +23,7 @@ exports.main = async event => {
       const uploaded = await cloud.uploadFile({cloudPath:`merchant-menu/${name}.${jpg?'jpg':png?'png':'webp'}`,fileContent:buffer});
       return {ok:true,data:uploaded.fileID};
     }
-    return { ok: true, data: await createService(db, ctx, identity, { priceOrder, assertVersion }).dispatch(event || {}) };
+    return { ok: true, data: await createService(db, ctx, identity, { validateCart, priceOrder, assertVersion }).dispatch(event || {}) };
   } catch (error) {
     const code = /^[A-Z_]+$/.test(error.message) ? error.message : 'SERVICE_UNAVAILABLE';
     if (code === 'SERVICE_UNAVAILABLE') console.error('restaurant', error.code || error.errCode || 'UNKNOWN', error.message);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.statusNames = exports.money = void 0;
+exports.statusNames = exports.minQuantityOf = exports.money = void 0;
 exports.initialize = initialize;
 exports.read = read;
 exports.reset = reset;
@@ -25,9 +25,11 @@ exports.submitOrder = submitOrder;
 exports.payDemo = payDemo;
 exports.updateOrder = updateOrder;
 exports.cancelMerchantOrder = cancelMerchantOrder;
+exports.orderDisplayItems = orderDisplayItems;
 exports.orderView = orderView;
 exports.cacheCloudCatalog = cacheCloudCatalog;
 exports.cacheCloudState = cacheCloudState;
+exports.editPendingOrder = editPendingOrder;
 const menu_data_1 = require("./menu-data");
 const KEY = 'charcoal-demo-v1';
 const money = (cents) => (cents / 100).toFixed(2);
@@ -200,6 +202,8 @@ function saveDish(dish) {
         s.dishes[i] = d;
     else
         s.dishes.push(d);
+    if (d.soldOut)
+        s.cart = s.cart.filter(line => line.dishId !== d.id);
     write(s);
 }
 function setDishStatus(id, field) {
@@ -208,6 +212,8 @@ function setDishStatus(id, field) {
     if (!d)
         return;
     d[field] = !d[field];
+    if (d.soldOut)
+        s.cart = s.cart.filter(line => line.dishId !== id);
     write(s);
 }
 function deleteDish(id) {
@@ -216,6 +222,14 @@ function deleteDish(id) {
     s.cart = s.cart.filter(c => c.dishId !== id);
     write(s);
 }
+const minQuantityOf = (d) => {
+    if (d.minQuantity && d.minQuantity > 1)
+        return d.minQuantity;
+    if ((d.description || '').indexOf('5串起点') >= 0)
+        return 5;
+    return 1;
+};
+exports.minQuantityOf = minQuantityOf;
 function changeCart(dishId, flavor, delta) {
     if (!Number.isInteger(delta))
         throw new Error('数量无效');
@@ -225,7 +239,13 @@ function changeCart(dishId, flavor, delta) {
         throw new Error('该菜品暂时无法点单');
     const key = `${dishId}:${flavor}`;
     const i = s.cart.findIndex(c => c.key === key);
-    const q = (i >= 0 ? s.cart[i].quantity : 0) + delta;
+    const current = i >= 0 ? s.cart[i].quantity : 0;
+    const min = (0, exports.minQuantityOf)(d);
+    let q = current + delta;
+    if (delta < 0 && q < min)
+        q = 0;
+    if (delta > 0 && current === 0)
+        q = Math.max(q, min);
     if (q > 99)
         throw new Error('同款菜品最多添加 99 份');
     if (q <= 0) {
@@ -249,13 +269,13 @@ function changeDishQuantity(dishId, delta) {
     const line = state.cart.filter(item => item.dishId === dishId).slice(-1)[0];
     if (delta < 0 && !line)
         return;
-    changeCart(dishId, (line === null || line === void 0 ? void 0 : line.flavor) || (dish.spicy ? '微辣' : '标准'), delta);
+    changeCart(dishId, (line === null || line === void 0 ? void 0 : line.flavor) || (dish.spicy ? '不辣' : '标准'), delta);
 }
 function cartView() {
     const s = read();
     const items = s.cart.map(c => {
         const d = s.dishes.find(d => d.id === c.dishId);
-        return d ? { ...c, ...d, available: d.onSale && !d.soldOut && s.categories.some(category => category.id === d.categoryId && category.onSale !== false), priceText: (0, exports.money)(d.price), subtotalText: (0, exports.money)(d.price * c.quantity) } : null;
+        return d ? { ...c, ...d, available: d.onSale && !d.soldOut && s.categories.some(category => category.id === d.categoryId && category.onSale !== false), minQuantity: (0, exports.minQuantityOf)(d), priceText: (0, exports.money)(d.price), subtotalText: (0, exports.money)(d.price * c.quantity) } : null;
     }).filter((x) => !!x);
     return { items, count: items.reduce((v, c) => v + c.quantity, 0), total: items.reduce((v, c) => v + c.price * c.quantity, 0) };
 }
@@ -271,7 +291,7 @@ function submitOrder(note) {
     const n = s.nextOrder++;
     const o = {
         id: `order-${Date.now()}-${n}`, number: `A${String(n).padStart(3, '0')}`, table: s.currentTable, createdAt: Date.now(),
-        items: c.items.map(i => ({ name: i.name, unit: i.unit, price: i.price, quantity: i.quantity, flavor: i.flavor })),
+        items: c.items.map(i => ({ dishId: i.id, minQuantity: (0, exports.minQuantityOf)(i), name: i.name, unit: i.unit, price: i.price, quantity: i.quantity, flavor: i.flavor })),
         total: c.total, note: note.trim().slice(0, 100), status: 'pending', paid: false
     };
     s.orders.unshift(o);
@@ -285,6 +305,7 @@ function payDemo(id) {
     if (!o || o.status === 'cancelled')
         throw new Error('订单不可支付');
     o.paid = true;
+    o.settledAt = o.settledAt || Date.now();
     write(s);
 }
 function updateOrder(id, next) {
@@ -307,11 +328,22 @@ function cancelMerchantOrder(id) {
     write(s);
 }
 exports.statusNames = { pending: '待接单', accepted: '制作中', completed: '已完成', cancelled: '已取消' };
+function orderDisplayItems(order) {
+    const items = order.items.map(i => ({ ...i }));
+    const dining = order.dining;
+    if (dining === null || dining === void 0 ? void 0 : dining.charged) {
+        if (dining.cutlery > 0)
+            items.push({ service: 'cutlery', name: '餐具', unit: '套', price: dining.cutleryPrice, quantity: dining.cutlery, flavor: '' });
+        if (dining.napkins > 0)
+            items.push({ service: 'napkins', name: '餐巾纸', unit: '包', price: dining.napkinPrice, quantity: dining.napkins, flavor: '' });
+    }
+    return items.map(i => ({ ...i, priceText: (0, exports.money)(i.price * i.quantity) }));
+}
 function orderView() {
     return read().orders.map(o => {
         const t = new Date(o.createdAt);
         const pad = (n) => String(n).padStart(2, '0');
-        return { ...o, statusText: exports.statusNames[o.status], totalText: (0, exports.money)(o.total), timeText: `${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`, items: o.items.map(i => ({ ...i, priceText: (0, exports.money)(i.price * i.quantity) })) };
+        return { ...o, statusText: exports.statusNames[o.status], totalText: (0, exports.money)(o.total), timeText: `${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`, items: orderDisplayItems(o) };
     });
 }
 // 云端目录只缓存公开菜单和本店配置，不导入本机演示订单到云端。
@@ -322,6 +354,7 @@ function cacheCloudCatalog(snapshot) {
     state.dishes = snapshot.dishes;
     state.shop = snapshot.shop;
     state.tables = snapshot.tables;
+    state.cart = state.cart.filter(line => snapshot.dishes.some(d => d.id === line.dishId && !d.soldOut));
     if (snapshot.printer)
         state.printer = snapshot.printer;
     if (!state.tables.some(t => t.name === state.currentTable))
@@ -334,5 +367,22 @@ function cacheCloudState(remote) {
     if (!wx.getStorageSync('charcoal-local-orders-archive'))
         wx.setStorageSync('charcoal-local-orders-archive', current.orders);
     write({ ...current, categories: remote.categories, dishes: remote.dishes, orders: remote.orders, shop: remote.shop,
-        cart: current.cart.filter(line => remote.dishes.some(d => d.id === line.dishId)), menuVersion: menu_data_1.MENU_VERSION });
+        cart: current.cart.filter(line => remote.dishes.some(d => d.id === line.dishId && !d.soldOut)), menuVersion: menu_data_1.MENU_VERSION });
+}
+function editPendingOrder(id, lines, note, merchant = false) {
+    const state = read(), order = state.orders.find(o => o.id === id);
+    if (!order || !(order.status === 'pending' || merchant && order.status === 'accepted') || order.paid)
+        throw new Error('订单当前状态不允许修改');
+    if (!lines.length)
+        throw new Error('请至少保留一道菜，或取消订单');
+    const items = lines.map(line => {
+        const d = state.dishes.find(d => d.id === line.dishId);
+        if (!d || !d.onSale || d.soldOut || !Number.isInteger(line.quantity) || line.quantity < (0, exports.minQuantityOf)(d) || line.quantity > 99)
+            throw new Error('菜品或数量无效');
+        return { dishId: d.id, name: d.name, unit: d.unit, price: d.price, flavor: line.flavor, quantity: line.quantity, minQuantity: (0, exports.minQuantityOf)(d) };
+    });
+    order.items = items;
+    order.total = items.reduce((n, i) => n + i.price * i.quantity, 0);
+    order.note = note.trim().slice(0, 100);
+    write(state);
 }

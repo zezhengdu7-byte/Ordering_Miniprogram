@@ -51,7 +51,7 @@ exports.main=async event=>{
         const d=menu.dishes[i];
         if(await get(db,'dishes',d.id)){results.push({id:d.id,skipped:true});continue;}
         const uploaded=await cloud.uploadFile({cloudPath:`menu/v2/${d.id}.jpg`,fileContent:fs.readFileSync(path.join(__dirname,'assets',d.id+'.jpg'))});
-        await insertMissing(db,'dishes',d.id,{categoryId:d.categoryId,name:d.name,description:d.description,price:d.price,unit:d.unit,imageFileId:uploaded.fileID,onSale:d.onSale,soldOut:d.soldOut,spicy:d.spicy,tag:d.tag,sort:i,active:true,version:1,createdAt:now,updatedAt:now});
+        await insertMissing(db,'dishes',d.id,{categoryId:d.categoryId,name:d.name,description:d.description,minQuantity:d.minQuantity,price:d.price,unit:d.unit,imageFileId:uploaded.fileID,onSale:d.onSale,soldOut:d.soldOut,spicy:d.spicy,tag:d.tag,sort:i,active:true,version:1,createdAt:now,updatedAt:now});
         results.push({id:d.id,fileID:uploaded.fileID});
       }
       return {ok:true,results,next:Math.min(start+limit,menu.dishes.length),total:menu.dishes.length};

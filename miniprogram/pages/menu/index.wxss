@@ -15,3 +15,19 @@
 
 /* 四字分区名称在侧栏保持一行。 */
 .category{font-size:24rpx;padding-left:22rpx;padding-right:12rpx;white-space:nowrap}
+
+.dining-options{display:flex;align-items:center;justify-content:space-between;gap:8rpx;margin-bottom:18rpx}
+.dining-options .dining-option{display:flex;align-items:center;justify-content:center;flex:0 0 60rpx;width:60rpx;min-width:60rpx;height:60rpx;margin:0;padding:0;border:2rpx solid #e4d8c9;border-radius:50%;background:#f5f0e8;color:#6d5745;font-size:27rpx;line-height:1}
+.dining-options .dining-option.selected{background:#ba4b2d;border-color:#ba4b2d;color:#fffaf2;font-weight:600}
+
+.dining-add-actions{display:flex;gap:28rpx;padding-top:12rpx}
+
+.cart-dish-line{display:flex;align-items:center;gap:18rpx}
+.cart-dish-image{width:120rpx;height:120rpx;flex-shrink:0;border-radius:12rpx;background:#e8dfd2}
+.cart-dish-details{flex:1;min-width:0}
+.cart-dish-details .cart-name{overflow-wrap:break-word}
+.cart-dish-details .cart-line-price{flex-shrink:0;margin-left:12rpx}
+.cart-dish-details .cart-line-bottom{gap:10rpx}
+.cart-dish-details .stepper{gap:14rpx;flex-shrink:0}
+
+.store-actions .table-scan{background:transparent;border-radius:0;margin:0;line-height:1.5;padding-top:0;padding-bottom:0;padding-right:0}.table-scan::after{border:0}.scan-hint{font-size:21rpx;color:#b84a2e;font-weight:500}
